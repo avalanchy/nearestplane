@@ -16,6 +16,8 @@
 
 var OPENSKY_URL = 'https://opensky-network.org/api/states/all';
 var PLANEFINDER_URL = 'https://planefinder.net/flight/';
+var FLIGHTRADAR_URL = 'https://www.flightradar24.com/';
+
 var PLANEFINDER_IFRAME = '#planefinder';
 
 var NAME = 1;
@@ -36,11 +38,6 @@ var MAX_LON = MY_LON_POS + LON_DIFF;
 
 
 function filterNearest (flights) {
-    //In [80]: def near():
-    //...:     r=OpenSkyApi().get_states()
-    //...:     for s in r.states:
-    //...:         if 50.0 < (s.latitude or 0) < 51.2 and 16.7 < (s.longitude or 0) < 17.2:
-    //...:             yield s
     return flights.filter(function (flight) {
         var lon = flight[LONGITUDE];
         var lat = flight[LATITUDE];
@@ -55,6 +52,22 @@ function filterNearest (flights) {
             lon < MAX_LON
         );
     });
+}
+
+function getNearest (flights) {
+    var candidate = null;
+    var minDistance = 99999;
+
+    flights.forEach(function (flight) {
+        var x = flight[LATITUDE] - MY_LAT_POS;
+        var y = flight[LONGITUDE] - MY_LON_POS;
+        var distance = Math.sqrt(x*x + y*y);
+        if (distance < minDistance) {
+            candidate = flight;
+            minDistance = distance;
+        }
+    });
+    return candidate;
 }
 
 
@@ -92,13 +105,14 @@ function processOpensky (data) {
 
 
 function markOnMap (flightName) {
+    console.log('try mark ', flightName);
     var sameAsDisplayed = flightName === window.flightName;
     if (sameAsDisplayed) {
         return;
     }
     window.flightName = flightName;
     var iframe = document.querySelector(PLANEFINDER_IFRAME);
-    iframe.src = PLANEFINDER_URL + flightName;
+    iframe.src = FLIGHTRADAR_URL + flightName;
 }
 
 function obtainFlights () {
@@ -106,9 +120,8 @@ function obtainFlights () {
         .then(function(response) {
             return response.json()
                 .then(processOpensky)
-                .then(filterNearest)
                 .then(filterNamed)
-                .then(getFlyingLowest)
+                .then(getNearest)
                 .then(parseFlightName)
                 .then(markOnMap)
         });
